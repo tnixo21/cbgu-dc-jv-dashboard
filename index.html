@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CBGU D&amp;C JV (M&amp;E) — Warehouse Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="snapshot.js"></script>
+<style>
+:root{--ink:#11233f;--ink2:#1c3357;--accent:#0e7c86;--accent2:#1f9aa8;--in:#1f8a4c;--out:#d2691e;
+--bg:#eef2f7;--card:#fff;--border:#d8e0ea;--warn:#b87000;--danger:#cc2a2a;--muted:#6a7689}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Segoe UI",system-ui,Arial,sans-serif;background:var(--bg);color:#1f2734;font-size:14px}
+header{background:linear-gradient(100deg,var(--ink),var(--ink2));color:#fff;padding:14px 26px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+header .ttl{display:flex;align-items:center;gap:13px}
+header .logo{width:40px;height:40px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+header h1{font-size:17px;font-weight:700;line-height:1.2}
+header h1 small{display:block;font-size:11.5px;font-weight:500;opacity:.78;margin-top:2px}
+header .meta{font-size:11px;opacity:.9;text-align:right;line-height:1.5}
+header .meta b{color:#7fe3d6}
+.ribbon{background:#0c1b32;color:#c5d2e6;font-size:11.5px;padding:7px 26px;display:flex;gap:18px;flex-wrap:wrap;align-items:center;border-bottom:1px solid #1c3357}
+.ribbon .dot{color:var(--accent2)}
+.tabs{display:flex;background:#fff;border-bottom:2px solid var(--border);padding:0 14px;position:sticky;top:0;z-index:100;box-shadow:0 2px 6px rgba(0,0,0,.07);overflow-x:auto}
+.tab-btn{padding:13px 16px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:600;color:#5a6a82;border-bottom:3px solid transparent;white-space:nowrap}
+.tab-btn:hover{color:var(--ink);background:#f5f8fb}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-content{display:none;padding:22px 26px;max-width:1560px;margin:0 auto}
+.tab-content.active{display:block}
+.cards-row{display:flex;gap:13px;flex-wrap:wrap;margin-bottom:20px}
+.card{background:var(--card);border-radius:11px;padding:15px 17px;min-width:148px;box-shadow:0 2px 9px rgba(20,40,80,.08);flex:1;border-top:3px solid var(--accent)}
+.card.in{border-top-color:var(--in)}.card.out{border-top-color:var(--out)}.card.warn{border-top-color:var(--warn)}
+.card.danger{border-top-color:var(--danger)}.card.ink{border-top-color:var(--ink)}.card.accent{border-top-color:var(--accent)}
+.card .big{font-size:28px;font-weight:800;line-height:1.05;color:var(--ink);letter-spacing:-.5px}
+.card .lbl{font-size:11px;color:var(--muted);margin-top:5px;font-weight:600;text-transform:uppercase;letter-spacing:.02em}
+.card .sub{font-size:11px;color:#93a0b3;margin-top:5px}
+.card.in .big{color:var(--in)}.card.out .big{color:var(--out)}.card.warn .big{color:var(--warn)}.card.danger .big{color:var(--danger)}.card.accent .big{color:var(--accent)}
+.section-title{font-size:14px;font-weight:700;color:var(--ink);margin:24px 0 12px;padding-bottom:6px;border-bottom:2px solid var(--border)}
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.chart-card{background:var(--card);border-radius:11px;padding:16px 18px;box-shadow:0 2px 9px rgba(20,40,80,.08)}
+.chart-card.wide{grid-column:1/-1}
+.chart-title{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:10px}
+.chart-title .cap{font-size:11px;font-weight:400;color:var(--muted)}
+.chart-wrap{position:relative;width:100%;height:300px}
+.chart-wrap.tall{height:360px}
+.table-wrap{overflow:auto;border-radius:9px;box-shadow:0 1px 6px rgba(20,40,80,.07);max-height:64vh;background:#fff}
+table{width:100%;border-collapse:collapse;background:var(--card)}
+th{background:var(--ink);color:#fff;padding:9px 11px;text-align:left;font-size:11.5px;font-weight:600;white-space:nowrap;position:sticky;top:0;z-index:2}
+td{padding:7px 11px;border-bottom:1px solid var(--border);white-space:nowrap;font-size:12.5px}
+td.num,th.num{text-align:right}
+tbody tr:nth-child(even){background:#f8fafc}
+tbody tr:hover td{background:#eaf3f4}
+th.sortable{cursor:pointer;-webkit-user-select:none;user-select:none}
+th.sortable:hover{background:#26456e}
+th.sortable::after{content:'⇅';opacity:.4;font-size:9px;margin-left:5px}
+th.sortable.asc::after{content:'▲';opacity:.95}
+th.sortable.desc::after{content:'▼';opacity:.95}
+.badge{background:#e9eef6;color:#33425a;border-radius:3px;padding:1px 6px;font-size:11px;font-family:"Consolas",monospace}
+.pill{border-radius:11px;padding:2px 9px;font-size:11px;font-weight:600;display:inline-block}
+.pill.ok{background:#e6f4ea;color:#1c7c3a}.pill.open{background:#fff3e0;color:#b25e00}.pill.mid{background:#e7f0fb;color:#2563a8}
+.pill.bad{background:#fdecec;color:#c0392b}.pill.grey{background:#eef1f5;color:#5a6680}
+.pill.a{background:#e3f2ec;color:#147a4a}.pill.b{background:#fdf3e0;color:#b07d10}.pill.c{background:#f0eef7;color:#6b53a8}
+.dirpos{color:var(--in);font-weight:700}.dirneg{color:var(--out);font-weight:700}
+.filter-row{display:flex;gap:10px;margin-bottom:13px;flex-wrap:wrap;align-items:center}
+.filter-row input,.filter-row select{padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;background:#fff}
+.filter-row input.search{min-width:250px}
+.filter-row .cnt{font-size:12px;color:var(--muted);margin-left:auto}
+.note{background:#e8f4f5;border-left:4px solid var(--accent);border-radius:5px;padding:11px 14px;font-size:12.5px;color:#274;margin-bottom:16px;line-height:1.55}
+.note b{color:var(--ink)}
+.split{display:grid;grid-template-columns:1.3fr 1fr;gap:16px}
+.minitable th{font-size:11px;padding:7px 9px}.minitable td{font-size:12px;padding:6px 9px}
+.foot{text-align:center;color:#9aa6b8;font-size:11.5px;padding:26px;line-height:1.6}
+@media(max-width:900px){.charts-grid,.split{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div class="ttl">
+    <div class="logo">&#x1F3D7;&#xFE0F;</div>
+    <h1>CBGU D&amp;C JV &mdash; Mechanical &amp; Electrical
+      <small>Warehouse &amp; Inventory Dashboard &middot; Cross River Rail</small></h1>
+  </div>
+  <div class="meta" id="hdrMeta">Loading&hellip;</div>
+</header>
+<div class="ribbon" id="ribbon"></div>
+
+<div class="tabs">
+  <button type="button" class="tab-btn active" onclick="showTab('t1',this)">&#x1F4CA; Overview</button>
+  <button type="button" class="tab-btn" onclick="showTab('t2',this)">&#x1F4E5; Purchase Orders</button>
+  <button type="button" class="tab-btn" onclick="showTab('t3',this)">&#x1F4E4; Orders Out</button>
+  <button type="button" class="tab-btn" onclick="showTab('t4',this)">&#x1F4E6; Stock &amp; Articles</button>
+  <button type="button" class="tab-btn" onclick="showTab('t5',this)">&#x1F3AF; Inventory Adjustments</button>
+  <button type="button" class="tab-btn" onclick="showTab('t6',this)">&#x1F4C8; Warehouse Analytics</button>
+  <button type="button" class="tab-btn" onclick="showTab('t7',this)">&#x1F5C2;&#xFE0F; All Articles</button>
+</div>
+
+<!-- TAB 1 OVERVIEW -->
+<div id="t1" class="tab-content active">
+  <div class="cards-row" id="ovCards"></div>
+  <div class="charts-grid">
+    <div class="chart-card wide"><div class="chart-title">Monthly Throughput &mdash; Units In vs Out, with stock-on-hand trend <span class="cap">(bars = units, line = end-of-month stock)</span></div><div class="chart-wrap tall"><canvas id="ovThroughput"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Stock on Hand by Category <span class="cap">(units)</span></div><div class="chart-wrap"><canvas id="ovCat"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Inventory Accuracy Trend <span class="cap">(cycle-count match rate)</span></div><div class="chart-wrap"><canvas id="ovAcc"></canvas></div></div>
+  </div>
+  <div class="section-title">Project Summary</div>
+  <div class="note" id="ovSummary"></div>
+  <div class="split">
+    <div><div class="section-title">Stock &amp; Movement by Category</div>
+      <div class="table-wrap"><table class="minitable"><thead><tr><th>Category</th><th class="num">SKUs</th><th class="num">Units on hand</th><th class="num">% of units</th><th class="num">Movement (out)</th></tr></thead><tbody id="ovCatTbody"></tbody></table></div>
+    </div>
+    <div><div class="section-title">ABC Profile <span class="cap" style="font-weight:400;font-size:11px;color:var(--muted)">&nbsp;(movement concentration)</span></div>
+      <div class="chart-card"><div class="chart-wrap" style="height:250px"><canvas id="ovAbc"></canvas></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 2 PURCHASE ORDERS -->
+<div id="t2" class="tab-content">
+  <div class="note"><b>Inbound / Purchase Orders.</b> Goods received into the CBGU M&amp;E warehouse from suppliers across the project. Each PO is booked against a supplier, expected date and reference, then receipted &mdash; we track lines, units, on-time performance and dock-to-stock time.</div>
+  <div class="cards-row" id="poCards"></div>
+  <div class="charts-grid">
+    <div class="chart-card wide"><div class="chart-title">Monthly Goods Receipts <span class="cap">(POs received &amp; units in)</span></div><div class="chart-wrap"><canvas id="poMonthly"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Top Suppliers by Units Received</div><div class="chart-wrap"><canvas id="poSup"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">On-Time Receipt Performance <span class="cap">(monthly %)</span></div><div class="chart-wrap"><canvas id="poOnTime"></canvas></div></div>
+  </div>
+  <div class="section-title">Purchase Orders</div>
+  <div class="filter-row">
+    <input class="search" id="poSearch" placeholder="Search PO no / supplier / reference&hellip;" oninput="renderPoTable()">
+    <select id="poStatus" onchange="renderPoTable()"><option value="">All statuses</option><option>Received</option><option>Receiving</option><option>Open</option></select>
+    <select id="poSupF" onchange="renderPoTable()"><option value="">All suppliers</option></select>
+    <span class="cnt" id="poCnt"></span>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr>
+      <th class="sortable" onclick="sortTbl('po','po','text',this)">PO No.</th>
+      <th class="sortable" onclick="sortTbl('po','sup','text',this)">Supplier</th>
+      <th class="sortable" onclick="sortTbl('po','ref','text',this)">Reference</th>
+      <th class="sortable" onclick="sortTbl('po','ordered','text',this)">Ordered</th>
+      <th class="sortable" onclick="sortTbl('po','received','text',this)">Received</th>
+      <th>Status</th>
+      <th class="num sortable" onclick="sortTbl('po','lines','num',this)">Lines</th>
+      <th class="num sortable" onclick="sortTbl('po','units','num',this)">Units</th>
+      <th class="num sortable" onclick="sortTbl('po','d2s','num',this)">Dock&rarr;stock (h)</th>
+    </tr></thead><tbody id="poTbody"></tbody></table></div>
+</div>
+
+<!-- TAB 3 ORDERS OUT -->
+<div id="t3" class="tab-content">
+  <div class="note"><b>Outbound / Release Orders.</b> Materials picked and dispatched to Cross River Rail work sites. We track order volume, lines, fill rate (units picked vs ordered), order-to-dispatch cycle time and priority mix by destination.</div>
+  <div class="cards-row" id="soCards"></div>
+  <div class="charts-grid">
+    <div class="chart-card wide"><div class="chart-title">Monthly Dispatch <span class="cap">(orders &amp; units out)</span></div><div class="chart-wrap"><canvas id="soMonthly"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Dispatch by Destination Site <span class="cap">(orders)</span></div><div class="chart-wrap"><canvas id="soSite"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Order Fill Rate Trend <span class="cap">(monthly %)</span></div><div class="chart-wrap"><canvas id="soFill"></canvas></div></div>
+  </div>
+  <div class="section-title">Release Orders</div>
+  <div class="filter-row">
+    <input class="search" id="soSearch" placeholder="Search order no / site&hellip;" oninput="renderSoTable()">
+    <select id="soStatus" onchange="renderSoTable()"><option value="">All statuses</option><option>Shipped</option><option>Picking</option><option>Allocated</option></select>
+    <select id="soSiteF" onchange="renderSoTable()"><option value="">All sites</option></select>
+    <select id="soPri" onchange="renderSoTable()"><option value="">All priorities</option><option>Standard</option><option>Urgent</option><option>Critical</option></select>
+    <span class="cnt" id="soCnt"></span>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr>
+      <th class="sortable" onclick="sortTbl('so','so','text',this)">Order No.</th>
+      <th class="sortable" onclick="sortTbl('so','cons','text',this)">Destination</th>
+      <th class="sortable" onclick="sortTbl('so','created','text',this)">Created</th>
+      <th class="sortable" onclick="sortTbl('so','shipped','text',this)">Shipped</th>
+      <th>Status</th><th>Priority</th>
+      <th class="num sortable" onclick="sortTbl('so','lines','num',this)">Lines</th>
+      <th class="num sortable" onclick="sortTbl('so','ordered','num',this)">Ordered</th>
+      <th class="num sortable" onclick="sortTbl('so','picked','num',this)">Picked</th>
+      <th class="num sortable" onclick="sortTbl('so','fill','num',this)">Fill %</th>
+      <th class="num sortable" onclick="sortTbl('so','cycle','num',this)">Cycle (h)</th>
+    </tr></thead><tbody id="soTbody"></tbody></table></div>
+</div>
+
+<!-- TAB 4 STOCK & ARTICLES -->
+<div id="t4" class="tab-content">
+  <div class="cards-row" id="stCards"></div>
+  <div class="charts-grid">
+    <div class="chart-card"><div class="chart-title">Units on Hand by Project Site / Package</div><div class="chart-wrap"><canvas id="stGrp"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">SKU Count by Category</div><div class="chart-wrap"><canvas id="stCatN"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">ABC Pareto <span class="cap">(cumulative movement vs SKUs)</span></div><div class="chart-wrap"><canvas id="stPareto"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Stock Status Mix</div><div class="chart-wrap"><canvas id="stStatus"></canvas></div></div>
+  </div>
+  <div class="section-title">Top 20 Fast-Movers <span class="cap" style="font-weight:400;font-size:11px;color:var(--muted)">(by units dispatched over the project)</span></div>
+  <div class="table-wrap"><table class="minitable"><thead><tr><th>Article</th><th>Description</th><th>Category</th><th>ABC</th><th class="num">On hand</th><th class="num">Units dispatched</th></tr></thead><tbody id="stTopTbody"></tbody></table></div>
+</div>
+
+<!-- TAB 5 INVENTORY ADJUSTMENTS -->
+<div id="t5" class="tab-content">
+  <div class="note"><b>Inventory Adjustments &mdash; right vs wrong.</b> Every cycle count is logged as a <span class="pill ok">Match</span> (system = counted, &ldquo;right&rdquo;) or a <span class="pill bad">Variance</span> (an adjustment was required, &ldquo;wrong&rdquo;). We track the match rate (inventory accuracy), the split of shortages vs overages, the net unit impact and the root-cause reasons &mdash; the core KPIs of a well-run store.</div>
+  <div class="cards-row" id="adjCards"></div>
+  <div class="charts-grid">
+    <div class="chart-card wide"><div class="chart-title">Cycle Counts &mdash; Right vs Wrong by Month <span class="cap">(matches vs variances, with accuracy line)</span></div><div class="chart-wrap"><canvas id="adjMonthly"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Variance Root Cause</div><div class="chart-wrap"><canvas id="adjReason"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Shortage vs Overage <span class="cap">(of variances)</span></div><div class="chart-wrap"><canvas id="adjDir"></canvas></div></div>
+  </div>
+  <div class="section-title">Adjustment / Cycle-Count Log</div>
+  <div class="filter-row">
+    <input class="search" id="adjSearch" placeholder="Search article / description&hellip;" oninput="renderAdjTable()">
+    <select id="adjResult" onchange="renderAdjTable()"><option value="">All results</option><option>Match</option><option>Variance</option></select>
+    <select id="adjReasonF" onchange="renderAdjTable()"><option value="">All reasons</option></select>
+    <span class="cnt" id="adjCnt"></span>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr>
+      <th class="sortable" onclick="sortTbl('adj','date','text',this)">Date</th>
+      <th class="sortable" onclick="sortTbl('adj','no','text',this)">Article</th>
+      <th>Description</th><th>Location</th><th>Result</th>
+      <th class="num sortable" onclick="sortTbl('adj','sys','num',this)">System</th>
+      <th class="num sortable" onclick="sortTbl('adj','counted','num',this)">Counted</th>
+      <th class="num sortable" onclick="sortTbl('adj','varU','num',this)">Variance (units)</th>
+      <th>Direction</th><th>Reason</th>
+    </tr></thead><tbody id="adjTbody"></tbody></table></div>
+</div>
+
+<!-- TAB 6 WAREHOUSE ANALYTICS -->
+<div id="t6" class="tab-content">
+  <div class="note"><b>Warehouse analytics.</b> Deeper operational views derived from the same data &mdash; flow balance, stock ageing, picking workload, ABC service profile and seasonality &mdash; the kind of insight this dataset unlocks.</div>
+  <div class="charts-grid">
+    <div class="chart-card wide"><div class="chart-title">Cumulative Flow &mdash; Goods In vs Goods Out <span class="cap">(units, cumulative)</span></div><div class="chart-wrap"><canvas id="anFlow"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Stock Ageing <span class="cap">(units on hand by first-received period)</span></div><div class="chart-wrap"><canvas id="anAge"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Picking Workload <span class="cap">(order lines out / month)</span></div><div class="chart-wrap"><canvas id="anLines"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Movement vs SKUs by ABC Class <span class="cap">(the 80/20)</span></div><div class="chart-wrap"><canvas id="anAbc"></canvas></div></div>
+    <div class="chart-card"><div class="chart-title">Throughput Seasonality <span class="cap">(avg units/month)</span></div><div class="chart-wrap"><canvas id="anSeason"></canvas></div></div>
+  </div>
+</div>
+
+<!-- TAB 7 ALL ARTICLES -->
+<div id="t7" class="tab-content">
+  <div class="note"><b>Article master</b> &mdash; the live catalogue from Ongoing WMS (goods owner 79), enriched with stock levels and movement. <span id="artNote"></span></div>
+  <div class="filter-row">
+    <input class="search" id="artSearch" placeholder="Search article no / description / supplier&hellip;" oninput="renderArtTable()">
+    <select id="artCat" onchange="renderArtTable()"><option value="">All categories</option></select>
+    <select id="artAbc" onchange="renderArtTable()"><option value="">All ABC</option><option>A</option><option>B</option><option>C</option></select>
+    <select id="artStatus" onchange="renderArtTable()"><option value="">All stock status</option><option>In stock</option><option>Low</option><option>Out of stock</option></select>
+    <span class="cnt" id="artCnt"></span>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr>
+      <th class="sortable" onclick="sortTbl('art','no','text',this)">Article</th>
+      <th class="sortable" onclick="sortTbl('art','name','text',this)">Description</th>
+      <th class="sortable" onclick="sortTbl('art','cat','text',this)">Category</th>
+      <th class="sortable" onclick="sortTbl('art','sup','text',this)">Supplier</th>
+      <th>ABC</th><th>Loc</th>
+      <th class="num sortable" onclick="sortTbl('art','onHand','num',this)">On hand</th>
+      <th class="num sortable" onclick="sortTbl('art','totalOut','num',this)">Units out</th>
+      <th>Status</th>
+    </tr></thead><tbody id="artTbody"></tbody></table></div>
+</div>
+
+<div class="foot" id="foot"></div>
+
+<script>
+const S = window.SNAPSHOT;
+const PAL=['#0e7c86','#e0792b','#3a6ea5','#1f8a4c','#7b4fa3','#c0563b','#d4a017','#2aa7a0','#5c6b8a','#a23e48','#8a8d3a','#476b9c'];
+const $=id=>document.getElementById(id);
+const fmt=n=>Math.round(n).toLocaleString('en-AU');
+const fmt1=n=>(Math.round(n*10)/10).toLocaleString('en-AU');
+function numC(n){n=+n;const a=Math.abs(n);if(a>=1e6)return (n/1e6).toFixed(1)+'M';if(a>=1e3)return (n/1e3).toFixed(0)+'k';return fmt(n);}
+const charts={};
+function mkChart(id,cfg){if(charts[id])charts[id].destroy();const el=$(id);if(!el)return;
+  cfg.options=cfg.options||{};cfg.options.responsive=true;cfg.options.maintainAspectRatio=false;
+  cfg.options.plugins=cfg.options.plugins||{};
+  if(!cfg.options.plugins.legend)cfg.options.plugins.legend={labels:{font:{size:11},boxWidth:12}};
+  charts[id]=new Chart(el,cfg);}
+Chart.defaults.font.family='"Segoe UI",system-ui,Arial,sans-serif';
+Chart.defaults.color='#52617a';
+
+const RENDER={t1:ovRender,t2:poRender,t3:soRender,t4:stRender,t5:adjRender,t6:anRender,t7:artRender};
+const done={};
+function showTab(id,btn){
+  document.querySelectorAll('.tab-content').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(e=>e.classList.remove('active'));
+  $(id).classList.add('active');if(btn)btn.classList.add('active');
+  if(!done[id]){try{RENDER[id]();}catch(e){console.error(e);}done[id]=true;}
+}
+function card(cls,big,lbl,sub){return `<div class="card ${cls}"><div class="big">${big}</div><div class="lbl">${lbl}</div><div class="sub">${sub||''}</div></div>`;}
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// sortable tables
+const TBL={po:{},so:{},adj:{},art:{}};
+function sortTbl(tbl,key,type,th){
+  const st=TBL[tbl];
+  if(st.sortKey===key)st.dir*=-1;else{st.sortKey=key;st.dir=1;}
+  st.type=type;
+  th.parentNode.querySelectorAll('th').forEach(h=>h.classList.remove('asc','desc'));
+  th.classList.add(st.dir>0?'asc':'desc');
+  ({po:renderPoTable,so:renderSoTable,adj:renderAdjTable,art:renderArtTable})[tbl]();
+}
+function applySort(rows,tbl){
+  const st=TBL[tbl];if(!st.sortKey)return rows;
+  const k=st.sortKey,d=st.dir,num=st.type==='num';
+  return rows.slice().sort((a,b)=>{let x=a[k],y=b[k];if(num){x=+x||0;y=+y||0;return (x-y)*d;}
+    x=(x||'').toString();y=(y||'').toString();return x.localeCompare(y)*d;});
+}
+function fillSelect(id,opts){const s=$(id);opts.forEach(o=>{const e=document.createElement('option');e.value=o;e.textContent=o;s.appendChild(e);});}
+function statusPill(s){const m={Received:'ok',Shipped:'ok',Receiving:'mid',Picking:'mid',Allocated:'open',Open:'open'};return `<span class="pill ${m[s]||'grey'}">${s}</span>`;}
+function abcPill(a){return `<span class="pill ${a.toLowerCase()}">${a}</span>`;}
+
+// ===== OVERVIEW =====
+function ovRender(){
+  const k=S.kpi;
+  $('ovCards').innerHTML=[
+    card('ink',fmt(k.skus),'Active SKUs','catalogued in WMS'),
+    card('accent',numC(k.unitsOnHand),'Units on hand',k.activeSkus+' lines in stock'),
+    card('in',fmt(k.posReceived),'POs received',fmt(k.linesIn)+' lines in'),
+    card('out',fmt(k.ordersShipped),'Orders dispatched',fmt(k.linesOut)+' lines out'),
+    card('accent',k.invAccuracy+'%','Inventory accuracy',k.totalCounts+' cycle counts'),
+    card('in',k.fillRate+'%','Order fill rate','units picked / ordered'),
+    card('warn',k.onTimeReceipt+'%','On-time receipt','vs expected date')
+  ].join('');
+  const ser=S.series;
+  mkChart('ovThroughput',{type:'bar',data:{labels:ser.map(s=>s.m),datasets:[
+    {label:'Units in (mo)',data:ser.map(s=>s.inUnits),backgroundColor:'#1f8a4c',order:2,yAxisID:'y'},
+    {label:'Units out (mo)',data:ser.map(s=>s.outUnits),backgroundColor:'#d2691e',order:2,yAxisID:'y'},
+    {label:'Stock on hand',data:ser.map(s=>s.stock),type:'line',borderColor:'#0e7c86',backgroundColor:'rgba(14,124,134,.08)',borderWidth:2.5,fill:true,tension:.35,order:1,pointRadius:0,yAxisID:'y1'}
+  ]},options:{scales:{y:{position:'left',title:{display:true,text:'Monthly units in / out',font:{size:10}},ticks:{callback:v=>numC(v)}},y1:{position:'right',title:{display:true,text:'Stock on hand',font:{size:10}},grid:{drawOnChartArea:false},ticks:{callback:v=>numC(v)}}},plugins:{legend:{labels:{font:{size:11},boxWidth:12}}}}});
+  const cats=S.byCat.slice(0,8);
+  mkChart('ovCat',{type:'doughnut',data:{labels:cats.map(c=>c.k),datasets:[{data:cats.map(c=>c.units),backgroundColor:PAL}]},
+    options:{plugins:{legend:{position:'right',labels:{font:{size:10.5},boxWidth:11}},tooltip:{callbacks:{label:c=>c.label+': '+fmt(c.raw)+' units'}}}}});
+  mkChart('ovAcc',{type:'line',data:{labels:ser.map(s=>s.m),datasets:[{label:'Accuracy %',data:ser.map(s=>+(s.acc*100).toFixed(1)),borderColor:'#0e7c86',backgroundColor:'rgba(14,124,134,.1)',fill:true,tension:.3,borderWidth:2.5,pointRadius:2}]},
+    options:{scales:{y:{min:94,max:100,ticks:{callback:v=>v+'%'}}},plugins:{legend:{display:false}}}});
+  const m=S.meta;
+  $('ovSummary').innerHTML=`<b>${m.project}</b> &mdash; ${m.client}.<br>
+    Program: <b>${m.program}</b>. Storage at the ${m.warehouse} (Ongoing WMS goods owner ${m.goodsOwnerId}, warehouse ${m.warehouseId}).
+    Snapshot as at <b>${m.asAt}</b>, covering <b>${m.monthsActive} months</b> of operation from ${m.periodStart}.
+    Over this period the store handled <b>${fmt(k.linesIn)}</b> inbound and <b>${fmt(k.linesOut)}</b> outbound order lines across
+    <b>${k.suppliers}</b> suppliers and <b>${k.sites}</b> delivery destinations, maintaining <b>${k.invAccuracy}%</b> inventory accuracy.
+    <br><span style="color:var(--muted);font-size:11.5px">${m.note}</span>`;
+  const tu=S.byCat.reduce((s,c)=>s+c.units,0);
+  $('ovCatTbody').innerHTML=S.byCat.map(c=>`<tr><td>${c.k}</td><td class="num">${fmt(c.n)}</td><td class="num">${fmt(c.units)}</td><td class="num">${(c.units/tu*100).toFixed(1)}%</td><td class="num">${fmt(c.mov)}</td></tr>`).join('');
+  const ab=S.byAbc,tm=ab.A.mov+ab.B.mov+ab.C.mov,tn=ab.A.n+ab.B.n+ab.C.n;
+  mkChart('ovAbc',{type:'bar',data:{labels:['A','B','C'],datasets:[
+    {label:'% of movement',data:[ab.A.mov,ab.B.mov,ab.C.mov].map(v=>+(v/tm*100).toFixed(1)),backgroundColor:'#0e7c86'},
+    {label:'% of SKUs',data:[ab.A.n,ab.B.n,ab.C.n].map(v=>+(v/tn*100).toFixed(1)),backgroundColor:'#e0792b'}
+  ]},options:{scales:{y:{ticks:{callback:v=>v+'%'}}},plugins:{legend:{labels:{font:{size:11},boxWidth:12}}}}});
+}
+
+// ===== PURCHASE ORDERS =====
+function poRender(){
+  const IN=S.inbound,k=S.kpi;
+  const recv=IN.filter(p=>p.status==='Received');
+  const unitsIn=IN.reduce((s,p)=>s+p.units,0);
+  const avgD2s=recv.reduce((s,p)=>s+p.d2s,0)/Math.max(1,recv.length);
+  $('poCards').innerHTML=[
+    card('in',fmt(IN.length),'Purchase orders',recv.length+' received'),
+    card('ink',fmt(k.linesIn),'Lines received','goods-in lines'),
+    card('accent',numC(unitsIn),'Units received',''),
+    card('in',k.onTimeReceipt+'%','On-time receipt','vs expected date'),
+    card('warn',fmt1(avgD2s)+'h','Avg dock-to-stock','receipt &rarr; put-away'),
+    card('ink',fmt(k.suppliers),'Active suppliers','')
+  ].join('');
+  const ser=S.series;
+  mkChart('poMonthly',{type:'bar',data:{labels:ser.map(s=>s.m),datasets:[
+    {label:'Units in',data:ser.map(s=>s.inUnits),backgroundColor:'#1f8a4c',yAxisID:'y'},
+    {label:'POs received',data:ser.map(s=>s.pos),type:'line',borderColor:'#11233f',borderWidth:2.5,tension:.3,yAxisID:'y1',pointRadius:2}
+  ]},options:{scales:{y:{position:'left',ticks:{callback:v=>numC(v)}},y1:{position:'right',grid:{drawOnChartArea:false}}},plugins:{legend:{labels:{font:{size:11},boxWidth:12}}}}});
+  const sv={};IN.forEach(p=>sv[p.sup]=(sv[p.sup]||0)+p.units);
+  const top=Object.entries(sv).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  mkChart('poSup',{type:'bar',data:{labels:top.map(t=>t[0]),datasets:[{label:'Units received',data:top.map(t=>t[1]),backgroundColor:'#0e7c86'}]},
+    options:{indexAxis:'y',scales:{x:{ticks:{callback:v=>numC(v)}}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt(c.raw)+' units'}}}}});
+  const byM={};recv.forEach(p=>{const m=p.received.slice(0,7);(byM[m]=byM[m]||[0,0]);byM[m][1]++;if(p.onTime)byM[m][0]++;});
+  const ms=ser.map(s=>s.m);
+  mkChart('poOnTime',{type:'line',data:{labels:ms,datasets:[{label:'On-time %',data:ms.map(m=>byM[m]?Math.round(byM[m][0]/byM[m][1]*100):null),borderColor:'#e0792b',backgroundColor:'rgba(224,121,43,.1)',fill:true,tension:.3,borderWidth:2.5,spanGaps:true,pointRadius:2}]},
+    options:{scales:{y:{min:60,max:100,ticks:{callback:v=>v+'%'}}},plugins:{legend:{display:false}}}});
+  fillSelect('poSupF',[...new Set(IN.map(p=>p.sup))].sort());
+  renderPoTable();
+}
+function renderPoTable(){
+  const q=$('poSearch').value.toLowerCase(),st=$('poStatus').value,sup=$('poSupF').value;
+  let rows=S.inbound.filter(p=>(!st||p.status===st)&&(!sup||p.sup===sup)&&(!q||(p.po+p.sup+p.ref).toLowerCase().includes(q)));
+  rows=applySort(rows,'po');
+  $('poCnt').textContent=fmt(rows.length)+' POs';
+  $('poTbody').innerHTML=rows.slice(0,800).map(p=>`<tr><td><span class="badge">${p.po}</span></td><td>${esc(p.sup)}</td><td>${p.ref}</td><td>${p.ordered}</td><td>${p.received||'&mdash;'}</td><td>${statusPill(p.status)}</td><td class="num">${p.lines}</td><td class="num">${fmt(p.units)}</td><td class="num">${p.d2s?fmt1(p.d2s):'&mdash;'}</td></tr>`).join('');
+}
+
+// ===== ORDERS OUT =====
+function soRender(){
+  const O=S.outbound,k=S.kpi;
+  const shipped=O.filter(o=>o.status==='Shipped');
+  const unitsOut=O.reduce((s,o)=>s+o.picked,0);
+  const avgCycle=shipped.reduce((s,o)=>s+o.cycle,0)/Math.max(1,shipped.length);
+  $('soCards').innerHTML=[
+    card('out',fmt(O.length),'Release orders',shipped.length+' shipped'),
+    card('ink',fmt(k.linesOut),'Lines picked','outbound lines'),
+    card('accent',numC(unitsOut),'Units dispatched',''),
+    card('in',k.fillRate+'%','Fill rate','units picked / ordered'),
+    card('warn',fmt1(avgCycle)+'h','Avg order cycle','create &rarr; dispatch'),
+    card('ink',fmt(k.sites),'Destination sites','')
+  ].join('');
+  const ser=S.series;
+  mkChart('soMonthly',{type:'bar',data:{labels:ser.map(s=>s.m),datasets:[
+    {label:'Units out',data:ser.map(s=>s.outUnits),backgroundColor:'#d2691e',yAxisID:'y'},
+    {label:'Orders',data:ser.map(s=>s.orders),type:'line',borderColor:'#11233f',borderWidth:2.5,tension:.3,yAxisID:'y1',pointRadius:2}
+  ]},options:{scales:{y:{position:'left',ticks:{callback:v=>numC(v)}},y1:{position:'right',grid:{drawOnChartArea:false}}},plugins:{legend:{labels:{font:{size:11},boxWidth:12}}}}});
+  const sc={};O.forEach(o=>sc[o.cons]=(sc[o.cons]||0)+1);
+  const sct=Object.entries(sc).sort((a,b)=>b[1]-a[1]);
+  mkChart('soSite',{type:'bar',data:{labels:sct.map(s=>s[0].replace('Cross River Rail - ','')),datasets:[{label:'Orders',data:sct.map(s=>s[1]),backgroundColor:'#3a6ea5'}]},
+    options:{indexAxis:'y',plugins:{legend:{display:false}}}});
+  const byM={};shipped.forEach(o=>{const m=o.shipped.slice(0,7);(byM[m]=byM[m]||[0,0]);byM[m][0]+=o.fill;byM[m][1]++;});
+  const ms=ser.map(s=>s.m);
+  mkChart('soFill',{type:'line',data:{labels:ms,datasets:[{label:'Fill %',data:ms.map(m=>byM[m]?Math.round(byM[m][0]/byM[m][1]):null),borderColor:'#1f8a4c',backgroundColor:'rgba(31,138,76,.1)',fill:true,tension:.3,borderWidth:2.5,spanGaps:true,pointRadius:2}]},
+    options:{scales:{y:{min:80,max:100,ticks:{callback:v=>v+'%'}}},plugins:{legend:{display:false}}}});
+  fillSelect('soSiteF',[...new Set(O.map(o=>o.cons))].sort());
+  renderSoTable();
+}
+function priPill(p){const m={Critical:'bad',Urgent:'open',Standard:'grey'};return `<span class="pill ${m[p]||'grey'}">${p}</span>`;}
+function renderSoTable(){
+  const q=$('soSearch').value.toLowerCase(),st=$('soStatus').value,si=$('soSiteF').value,pr=$('soPri').value;
+  let rows=S.outbound.filter(o=>(!st||o.status===st)&&(!si||o.cons===si)&&(!pr||o.priority===pr)&&(!q||(o.so+o.cons).toLowerCase().includes(q)));
+  rows=applySort(rows,'so');
+  $('soCnt').textContent=fmt(rows.length)+' orders';
+  $('soTbody').innerHTML=rows.slice(0,800).map(o=>`<tr><td><span class="badge">${o.so}</span></td><td>${o.cons.replace('Cross River Rail - ','')}</td><td>${o.created}</td><td>${o.shipped||'&mdash;'}</td><td>${statusPill(o.status)}</td><td>${priPill(o.priority)}</td><td class="num">${o.lines}</td><td class="num">${fmt(o.ordered)}</td><td class="num">${fmt(o.picked)}</td><td class="num">${o.fill}%</td><td class="num">${o.cycle?fmt1(o.cycle):'&mdash;'}</td></tr>`).join('');
+}
+
+// ===== STOCK & ARTICLES =====
+function stRender(){
+  const k=S.kpi,A=S.articles;
+  const low=A.filter(a=>a.status==='Low').length,oos=A.filter(a=>a.status==='Out of stock').length;
+  $('stCards').innerHTML=[
+    card('ink',fmt(k.skus),'Total SKUs',k.activeSkus+' in stock'),
+    card('accent',numC(k.unitsOnHand),'Units on hand',''),
+    card('warn',fmt(low),'Low stock','at/under reorder'),
+    card('danger',fmt(oos),'Out of stock','0 on hand'),
+    card('in',fmt(S.byAbc.A.n),'Class-A SKUs','~80% of movement'),
+    card('ink',fmt(S.byCat.length),'Categories','')
+  ].join('');
+  const g=S.byGrp.slice(0,10);
+  mkChart('stGrp',{type:'bar',data:{labels:g.map(x=>x.k.replace('Cross River Rail - ','')),datasets:[{label:'Units on hand',data:g.map(x=>x.units),backgroundColor:'#0e7c86'}]},
+    options:{indexAxis:'y',scales:{x:{ticks:{callback:v=>numC(v)}}},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt(c.raw)+' units'}}}}});
+  const c=S.byCat.slice(0,10);
+  mkChart('stCatN',{type:'bar',data:{labels:c.map(x=>x.k),datasets:[{label:'SKUs',data:c.map(x=>x.n),backgroundColor:'#3a6ea5'}]},
+    options:{indexAxis:'y',plugins:{legend:{display:false}}}});
+  const sorted=A.slice().sort((a,b)=>b.totalOut-a.totalOut);const tot=sorted.reduce((s,a)=>s+a.totalOut,0)||1;
+  let cum=0;const step=Math.ceil(sorted.length/60);const px=[],py=[];
+  for(let i=0;i<sorted.length;i++){cum+=sorted[i].totalOut;if(i%step===0||i===sorted.length-1){px.push(Math.round(i/sorted.length*100)+'%');py.push(+(cum/tot*100).toFixed(1));}}
+  mkChart('stPareto',{type:'line',data:{labels:px,datasets:[{label:'Cumulative % movement',data:py,borderColor:'#e0792b',backgroundColor:'rgba(224,121,43,.1)',fill:true,tension:.2,pointRadius:0,borderWidth:2.5}]},
+    options:{scales:{y:{max:100,ticks:{callback:v=>v+'%'}},x:{title:{display:true,text:'% of SKUs (ranked by movement)',font:{size:10}}}},plugins:{legend:{display:false}}}});
+  const sm={'In stock':0,'Low':0,'Out of stock':0};A.forEach(a=>sm[a.status]++);
+  mkChart('stStatus',{type:'doughnut',data:{labels:Object.keys(sm),datasets:[{data:Object.values(sm),backgroundColor:['#1f8a4c','#e0a72b','#cc2a2a']}]},
+    options:{plugins:{legend:{position:'right',labels:{font:{size:11},boxWidth:12}}}}});
+  $('stTopTbody').innerHTML=sorted.slice(0,20).map(a=>`<tr><td><span class="badge">${esc(a.no)}</span></td><td>${esc(a.name)}</td><td>${a.cat}</td><td>${abcPill(a.abc)}</td><td class="num">${fmt(a.onHand)}</td><td class="num">${fmt(a.totalOut)}</td></tr>`).join('');
+}
+
+// ===== INVENTORY ADJUSTMENTS =====
+function adjRender(){
+  const D=S.adjustments,k=S.kpi;
+  const variances=D.filter(a=>a.result==='Variance');
+  const sh=variances.filter(a=>a.dir==='Shortage').length,ov=variances.filter(a=>a.dir==='Overage').length;
+  const netU=D.reduce((s,a)=>s+a.varU,0);
+  $('adjCards').innerHTML=[
+    card('ink',fmt(k.totalCounts),'Cycle counts','lines counted'),
+    card('in',k.invAccuracy+'%','Inventory accuracy',k.matches+' matched'),
+    card('danger',fmt(k.variances),'Variances',(100-k.invAccuracy).toFixed(1)+'% of counts'),
+    card('out',fmt(sh),'Shortages','count short'),
+    card('in',fmt(ov),'Overages','count over'),
+    card((netU<0?'out':'in'),(netU>=0?'+':'')+fmt(netU),'Net unit variance','units')
+  ].join('');
+  const ser=S.series;const byM={};D.forEach(a=>{const m=a.m;(byM[m]=byM[m]||[0,0]);if(a.result==='Match')byM[m][0]++;else byM[m][1]++;});
+  const ms=ser.map(s=>s.m);
+  mkChart('adjMonthly',{type:'bar',data:{labels:ms,datasets:[
+    {label:'Match (right)',data:ms.map(m=>byM[m]?byM[m][0]:0),backgroundColor:'#1f8a4c',stack:'s'},
+    {label:'Variance (wrong)',data:ms.map(m=>byM[m]?byM[m][1]:0),backgroundColor:'#cc2a2a',stack:'s'},
+    {label:'Accuracy %',data:ser.map(s=>+(s.acc*100).toFixed(1)),type:'line',borderColor:'#0e7c86',borderWidth:2.5,tension:.3,yAxisID:'y1',pointRadius:2}
+  ]},options:{scales:{y:{stacked:true},x:{stacked:true},y1:{position:'right',min:90,max:100,grid:{drawOnChartArea:false},ticks:{callback:v=>v+'%'}}},plugins:{legend:{labels:{font:{size:11},boxWidth:12}}}}});
+  const rc={};variances.forEach(a=>rc[a.reason]=(rc[a.reason]||0)+1);
+  const rct=Object.entries(rc).sort((a,b)=>b[1]-a[1]);
+  mkChart('adjReason',{type:'bar',data:{labels:rct.map(r=>r[0]),datasets:[{label:'Variances',data:rct.map(r=>r[1]),backgroundColor:'#7b4fa3'}]},
+    options:{indexAxis:'y',plugins:{legend:{display:false}}}});
+  mkChart('adjDir',{type:'doughnut',data:{labels:['Shortage (−)','Overage (+)'],datasets:[{data:[sh,ov],backgroundColor:['#d2691e','#1f8a4c']}]},
+    options:{plugins:{legend:{position:'right',labels:{font:{size:11},boxWidth:12}}}}});
+  fillSelect('adjReasonF',[...new Set(variances.map(a=>a.reason))].sort());
+  renderAdjTable();
+}
+function renderAdjTable(){
+  const q=$('adjSearch').value.toLowerCase(),res=$('adjResult').value,rs=$('adjReasonF').value;
+  let rows=S.adjustments.filter(a=>(!res||a.result===res)&&(!rs||a.reason===rs)&&(!q||(a.no+a.name).toLowerCase().includes(q)));
+  rows=applySort(rows,'adj');
+  $('adjCnt').textContent=fmt(rows.length)+' counts';
+  $('adjTbody').innerHTML=rows.slice(0,800).map(a=>{
+    const vc=a.varU<0?'dirneg':a.varU>0?'dirpos':'';
+    const vtxt=a.varU>0?'+'+a.varU:a.varU;
+    return `<tr><td>${a.date}</td><td><span class="badge">${esc(a.no)}</span></td><td>${esc(a.name)}</td><td>${a.loc}</td><td>${a.result==='Match'?'<span class="pill ok">Match</span>':'<span class="pill bad">Variance</span>'}</td><td class="num">${fmt(a.sys)}</td><td class="num">${fmt(a.counted)}</td><td class="num ${vc}">${a.varU?vtxt:'0'}</td><td>${a.dir||'&mdash;'}</td><td>${a.reason||'&mdash;'}</td></tr>`;
+  }).join('');
+}
+
+// ===== ANALYTICS =====
+function anRender(){
+  const ser=S.series;
+  let ci=0,co=0;const ciA=[],coA=[];
+  ser.forEach(s=>{ci+=s.inUnits;co+=s.outUnits;ciA.push(ci);coA.push(co);});
+  mkChart('anFlow',{type:'line',data:{labels:ser.map(s=>s.m),datasets:[
+    {label:'Cumulative in',data:ciA,borderColor:'#1f8a4c',backgroundColor:'rgba(31,138,76,.08)',fill:true,tension:.3,pointRadius:0,borderWidth:2.5},
+    {label:'Cumulative out',data:coA,borderColor:'#d2691e',backgroundColor:'rgba(210,105,30,.06)',fill:true,tension:.3,pointRadius:0,borderWidth:2.5}
+  ]},options:{scales:{y:{ticks:{callback:v=>numC(v)}}},plugins:{legend:{labels:{font:{size:11},boxWidth:12}}}}});
+  const ag={};S.articles.forEach(a=>{const q=quarter(a.firstSeen);ag[q]=(ag[q]||0)+a.onHand;});
+  const aks=Object.keys(ag).sort();
+  mkChart('anAge',{type:'bar',data:{labels:aks,datasets:[{label:'Units on hand',data:aks.map(q=>ag[q]),backgroundColor:'#3a6ea5'}]},
+    options:{scales:{y:{ticks:{callback:v=>numC(v)}}},plugins:{legend:{display:false}}}});
+  mkChart('anLines',{type:'bar',data:{labels:ser.map(s=>s.m),datasets:[{label:'Order lines out',data:ser.map(s=>s.outLines),backgroundColor:'#0e7c86'}]},
+    options:{plugins:{legend:{display:false}}}});
+  const ab=S.byAbc;
+  mkChart('anAbc',{type:'bar',data:{labels:['A','B','C'],datasets:[
+    {label:'SKUs',data:[ab.A.n,ab.B.n,ab.C.n],backgroundColor:'#e0792b',yAxisID:'y'},
+    {label:'Movement (units out)',data:[ab.A.mov,ab.B.mov,ab.C.mov],type:'line',borderColor:'#0e7c86',borderWidth:2.5,yAxisID:'y1',tension:.2,pointRadius:3}
+  ]},options:{scales:{y1:{position:'right',grid:{drawOnChartArea:false},ticks:{callback:v=>numC(v)}}},plugins:{legend:{labels:{font:{size:11},boxWidth:12}}}}});
+  const mo={};ser.forEach(s=>{const m=+s.m.slice(5,7);(mo[m]=mo[m]||[0,0]);mo[m][0]+=s.inUnits+s.outUnits;mo[m][1]++;});
+  const MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const mk=Object.keys(mo).map(Number).sort((a,b)=>a-b);
+  mkChart('anSeason',{type:'bar',data:{labels:mk.map(m=>MN[m-1]),datasets:[{label:'Avg units/month',data:mk.map(m=>Math.round(mo[m][0]/mo[m][1])),backgroundColor:'#7b4fa3'}]},
+    options:{scales:{y:{ticks:{callback:v=>numC(v)}}},plugins:{legend:{display:false}}}});
+}
+function quarter(ym){const y=ym.slice(0,4),m=+ym.slice(5,7);return y+' Q'+(Math.floor((m-1)/3)+1);}
+
+// ===== ALL ARTICLES =====
+function artRender(){
+  $('artNote').textContent=`${fmt(S.articles.length)} SKUs. Showing up to 1,500 rows at a time — use search & filters to narrow.`;
+  fillSelect('artCat',[...new Set(S.articles.map(a=>a.cat))].sort());
+  renderArtTable();
+}
+function stPill(s){const m={'In stock':'ok','Low':'open','Out of stock':'bad'};return `<span class="pill ${m[s]||'grey'}">${s}</span>`;}
+function renderArtTable(){
+  const q=$('artSearch').value.toLowerCase(),cat=$('artCat').value,abc=$('artAbc').value,st=$('artStatus').value;
+  let rows=S.articles.filter(a=>(!cat||a.cat===cat)&&(!abc||a.abc===abc)&&(!st||a.status===st)&&(!q||(a.no+a.name+a.sup).toLowerCase().includes(q)));
+  rows=applySort(rows,'art');
+  $('artCnt').textContent=fmt(rows.length)+' SKUs';
+  $('artTbody').innerHTML=rows.slice(0,1500).map(a=>`<tr><td><span class="badge">${esc(a.no)}</span></td><td>${esc(a.name)}</td><td>${a.cat}</td><td>${esc(a.sup)||'<span style="color:#aab">&mdash;</span>'}</td><td>${abcPill(a.abc)}</td><td><span class="badge">${a.loc}</span></td><td class="num">${fmt(a.onHand)}</td><td class="num">${fmt(a.totalOut)}</td><td>${stPill(a.status)}</td></tr>`).join('');
+}
+
+// ===== boot =====
+(function(){
+  const m=S.meta,k=S.kpi;
+  $('hdrMeta').innerHTML=`Snapshot as at <b>${m.asAt}</b><br>Goods owner ${m.goodsOwnerId} &middot; ${fmt(k.skus)} SKUs`;
+  $('ribbon').innerHTML=`<span class="dot">&#9679;</span> ${m.client}
+    &nbsp;<span class="dot">&#9679;</span> ${m.warehouse}
+    &nbsp;<span class="dot">&#9679;</span> ${m.periodStart} &rarr; ${m.asAt} (${m.monthsActive} mo)
+    &nbsp;<span class="dot">&#9679;</span> Status: <b style="color:#7fe3d6">Finished project</b>`;
+  $('foot').innerHTML=`CBGU D&amp;C JV (M&amp;E) Warehouse Dashboard &middot; data as at ${m.asAt} &middot; article master from Ongoing WMS (goods owner ${m.goodsOwnerId}).<br>Operational metrics for demonstration &mdash; units, movement &amp; accuracy only.`;
+  ovRender();done.t1=true;
+})();
+</script>
+</body>
+</html>
