@@ -70,6 +70,25 @@ th.sortable.desc::after{content:'▼';opacity:.95}
 .minitable th{font-size:11px;padding:7px 9px}.minitable td{font-size:12px;padding:6px 9px}
 .foot{text-align:center;color:#9aa6b8;font-size:11.5px;padding:26px;line-height:1.6}
 @media(max-width:900px){.charts-grid,.split{grid-template-columns:1fr}}
+/* ask assistant */
+.ask-wrap{max-width:940px}
+.ask-log{background:#fff;border:1px solid var(--border);border-radius:11px;padding:14px;min-height:300px;max-height:480px;overflow-y:auto;box-shadow:0 2px 9px rgba(20,40,80,.08);margin-bottom:12px}
+.ask-msg{display:flex;margin:8px 0}
+.ask-msg.you{justify-content:flex-end}
+.ask-bubble{max-width:84%;padding:10px 13px;border-radius:12px;font-size:13px;line-height:1.55}
+.ask-msg.you .ask-bubble{background:var(--accent);color:#fff;border-bottom-right-radius:3px}
+.ask-msg.bot .ask-bubble{background:#e8f4f5;color:#274;border-bottom-left-radius:3px}
+.ask-bubble table{border-collapse:collapse;margin-top:8px;font-size:12px;width:100%}
+.ask-bubble th,.ask-bubble td{border:1px solid #cfe2e4;padding:3px 7px;text-align:left;white-space:nowrap}
+.ask-bubble th{background:#d6ebed;color:#1a3a3d}
+.ask-bubble td.num,.ask-bubble th.num{text-align:right}
+.ask-row{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+.ask-row input{flex:1;padding:10px 13px;border:1px solid var(--border);border-radius:8px;font-size:14px}
+.ask-send{padding:10px 22px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;font-size:14px;cursor:pointer}
+.ask-send:hover{filter:brightness(1.08)}
+.ask-chips{display:flex;gap:8px;flex-wrap:wrap}
+.ask-chip{background:#e8f4f5;border:1px solid #cfe2e4;color:#255;border-radius:14px;padding:5px 11px;font-size:12px;cursor:pointer}
+.ask-chip:hover{background:#d6ebed}
 </style>
 </head>
 <body>
@@ -85,6 +104,7 @@ th.sortable.desc::after{content:'▼';opacity:.95}
 
 <div class="tabs">
   <button type="button" class="tab-btn active" onclick="showTab('t1',this)">&#x1F4CA; Overview</button>
+  <button type="button" class="tab-btn" onclick="showTab('t8',this)">&#x1F4AC; Ask</button>
   <button type="button" class="tab-btn" onclick="showTab('t2',this)">&#x1F4E5; Purchase Orders</button>
   <button type="button" class="tab-btn" onclick="showTab('t3',this)">&#x1F4E4; Orders Out</button>
   <button type="button" class="tab-btn" onclick="showTab('t4',this)">&#x1F4E6; Stock &amp; Articles</button>
@@ -251,6 +271,19 @@ th.sortable.desc::after{content:'▼';opacity:.95}
     </tr></thead><tbody id="artTbody"></tbody></table></div>
 </div>
 
+<!-- TAB 8 ASK -->
+<div id="t8" class="tab-content">
+  <div class="ask-wrap">
+    <div class="note">Ask about the store in plain English — where an article is, its stock level, counts by category or ABC class, what's low or out of stock, plus inventory accuracy, purchase orders and dispatch. Answers come straight from this snapshot; nothing leaves your browser.</div>
+    <div id="askLog" class="ask-log"></div>
+    <div class="ask-row">
+      <input id="askInput" placeholder="e.g. where is article 100234  ·  how many units on hand  ·  what's low on stock" onkeydown="if(event.key==='Enter'){askSubmit();}">
+      <button type="button" class="ask-send" onclick="askSubmit()">Ask</button>
+    </div>
+    <div class="ask-chips" id="askChips"></div>
+  </div>
+</div>
+
 <div class="foot" id="foot"></div>
 
 <script>
@@ -269,7 +302,7 @@ function mkChart(id,cfg){if(charts[id])charts[id].destroy();const el=$(id);if(!e
 Chart.defaults.font.family='"Segoe UI",system-ui,Arial,sans-serif';
 Chart.defaults.color='#52617a';
 
-const RENDER={t1:ovRender,t2:poRender,t3:soRender,t4:stRender,t5:adjRender,t6:anRender,t7:artRender};
+const RENDER={t1:ovRender,t2:poRender,t3:soRender,t4:stRender,t5:adjRender,t6:anRender,t7:artRender,t8:askInit};
 const done={};
 function showTab(id,btn){
   document.querySelectorAll('.tab-content').forEach(e=>e.classList.remove('active'));
@@ -528,6 +561,117 @@ function renderArtTable(){
   rows=applySort(rows,'art');
   $('artCnt').textContent=fmt(rows.length)+' SKUs';
   $('artTbody').innerHTML=rows.slice(0,1500).map(a=>`<tr><td><span class="badge">${esc(a.no)}</span></td><td>${esc(a.name)}</td><td>${a.cat}</td><td>${esc(a.sup)||'<span style="color:#aab">&mdash;</span>'}</td><td>${abcPill(a.abc)}</td><td><span class="badge">${a.loc}</span></td><td class="num">${fmt(a.onHand)}</td><td class="num">${fmt(a.totalOut)}</td><td>${stPill(a.status)}</td></tr>`).join('');
+}
+
+/* ============================================================================
+   ASK — CBGU M&E store assistant (local; answers from the snapshot; units only)
+   ========================================================================== */
+const CB_STOP=new Set('THE A AN IS ARE HOW MANY MUCH WHERE WHAT LIST SHOW WHICH LONG OLD HAS HAVE IN ON OF FOR ME GET ALL ARTICLE ARTICLES SKU SKUS STOCK UNIT UNITS HAND LEVEL COUNT NUMBER CATEGORY CLASS STATUS LOW OUT ZERO NO WITH AND TOTAL HERE ITEM ITEMS DO WE HAVE THERE'.split(' '));
+function cbFind(q){
+  const up=q.toUpperCase();
+  const toks=up.match(/[A-Z0-9][A-Z0-9\-\/\.]{2,}/g)||[];
+  const byNo=new Map(); S.articles.forEach(a=>byNo.set(String(a.no).toUpperCase(),a));
+  for(const t of toks){ if(byNo.has(t)) return {art:byNo.get(t)}; }
+  for(const t of toks){
+    if(CB_STOP.has(t)||!/[0-9]/.test(t)) continue;
+    const hits=S.articles.filter(a=>String(a.no).toUpperCase().includes(t));
+    if(hits.length===1) return {art:hits[0]};
+    if(hits.length>1) return {matches:hits.slice(0,12),token:t,more:hits.length};
+  }
+  return null;
+}
+function cbFilter(q){
+  const up=' '+q.toUpperCase()+' '; const f={};
+  const cats=[...new Set(S.articles.map(a=>a.cat).filter(Boolean))].sort((a,b)=>b.length-a.length);
+  for(const c of cats){ if(up.includes(c.toUpperCase())){ f.cat=c; break; } }
+  let m=up.match(/CLASS\s+([ABC])\b|\b([ABC])[- ]CLASS/); if(m) f.abc=(m[1]||m[2]);
+  if(/OUT OF STOCK|\bOOS\b|ZERO (ON HAND|STOCK)|NO STOCK/.test(up)) f.status='Out of stock';
+  else if(/\bLOW\b|REORDER/.test(up)) f.status='Low';
+  else if(/IN STOCK/.test(up)) f.status='In stock';
+  return f;
+}
+function cbMatch(a,f){ return (!f.cat||a.cat===f.cat)&&(!f.abc||a.abc===f.abc)&&(!f.status||a.status===f.status); }
+function cbArtInfo(a){
+  return `🔧 <b>${esc(a.no)}</b> — ${esc(a.name)}.<br>📍 Location <b>${esc(a.loc||'—')}</b> · category ${esc(a.cat)} · class ${esc(a.abc)}${a.sup?` · supplier ${esc(a.sup)}`:''}.<br>📦 On hand <b>${fmt(a.onHand)}</b> units · dispatched to date ${fmt(a.totalOut)} · <b>${esc(a.status)}</b>.`;
+}
+function cbArtTable(rows,limit){
+  const N=limit||15,shown=rows.slice(0,N);
+  let h='<table><thead><tr><th>Article</th><th>Description</th><th>Category</th><th>Loc</th><th class="num">On&nbsp;hand</th><th>Status</th></tr></thead><tbody>';
+  h+=shown.map(a=>`<tr><td>${esc(a.no)}</td><td>${esc((a.name||'').slice(0,44))}</td><td>${esc(a.cat)}</td><td>${esc(a.loc)}</td><td class="num">${fmt(a.onHand)}</td><td>${esc(a.status)}</td></tr>`).join('');
+  h+='</tbody></table>';
+  if(rows.length>N)h+=`<div style="margin-top:6px;color:#6a7689">…and ${fmt(rows.length-N)} more — add a category, ABC class, or stock status.</div>`;
+  return h;
+}
+function cbAnswer(q){
+  const up=q.toUpperCase().trim();
+  if(!up||/^(HELP|EXAMPLES?|WHAT CAN|\?)/.test(up)) return cbHelp();
+  const A=S.articles,k=S.kpi;
+  const wantWhere=/\bWHERE\b/.test(up);
+  const wantCount=/\bHOW MANY\b|\bCOUNT\b|\bNUMBER OF\b/.test(up);
+  const wantStock=/ON HAND|IN STOCK|STOCK LEVEL|HOW MUCH|HOW MANY.*(ON HAND|LEFT)/.test(up);
+  const wantList=/\bLIST\b|\bSHOW\b|\bWHICH\b/.test(up);
+  const wantAccuracy=/ACCURAC|VARIANCE|CYCLE COUNT|ADJUSTMENT/.test(up);
+  const wantPO=/PURCHASE ORDER|\bPO\b|\bPOS\b|RECEIPT|RECEIVED|INBOUND|SUPPLIER/.test(up);
+  const wantOut=/ORDERS? OUT|DISPATCH|RELEASE ORDER|SHIPPED|PICKED/.test(up);
+
+  if(wantAccuracy) return `📋 Inventory accuracy is <b>${k.invAccuracy}%</b> across <b>${fmt(k.totalCounts)}</b> cycle counts (${fmt(k.matches)} matches, <b>${fmt(k.variances)}</b> variances).`;
+  if(wantPO && wantCount) return `📥 <b>${fmt(S.inbound.length)}</b> purchase orders (${fmt(S.inbound.filter(p=>p.status==='Received').length)} received), <b>${fmt(k.linesIn)}</b> goods-in lines across ${fmt(k.suppliers)} suppliers.`;
+  if(wantOut && wantCount) return `📤 <b>${fmt(S.outbound.length)}</b> release orders (${fmt(S.outbound.filter(o=>o.status==='Shipped').length)} shipped), <b>${fmt(k.linesOut)}</b> lines picked; fill rate ${k.fillRate}%.`;
+
+  const found=cbFind(q);
+  if(found && found.matches) return `Found ${found.more} articles matching “${esc(found.token)}”. Which one?`+cbArtTable(found.matches,12);
+  if(found && found.art && !wantCount && !wantList){
+    const a=found.art;
+    if(wantWhere) return `📍 <b>${esc(a.no)}</b> (${esc(a.name)}) is at <b>${esc(a.loc||'—')}</b> — category ${esc(a.cat)}, ${fmt(a.onHand)} on hand (${esc(a.status)}).`;
+    if(wantStock) return `📦 <b>${esc(a.no)}</b> (${esc(a.name)}) — <b>${fmt(a.onHand)}</b> units on hand (${esc(a.status)}); ${fmt(a.totalOut)} dispatched to date.`;
+    return cbArtInfo(a);
+  }
+
+  const f=cbFilter(q);
+  const rows=A.filter(a=>cbMatch(a,f));
+  const lbl=[f.cat,f.abc?('class '+f.abc):null,f.status].filter(Boolean).join(' · ')||'all SKUs';
+  const filtered=f.cat||f.abc||f.status;
+
+  if(wantStock && filtered){ const u=rows.reduce((s,a)=>s+a.onHand,0); return `📦 <b>${fmt(u)}</b> units on hand across <b>${fmt(rows.length)}</b> SKUs (${esc(lbl)}).`; }
+  if(wantList) return `<b>${fmt(rows.length)}</b> SKUs — ${esc(lbl)}:`+cbArtTable(rows);
+  if(wantCount){
+    if(!filtered){
+      if(/UNIT/.test(up)) return `📦 <b>${fmt(k.unitsOnHand)}</b> units on hand across <b>${fmt(k.skus)}</b> SKUs.`;
+      if(/CATEGOR/.test(up)) return `<b>${S.byCat.length}</b> categories:`+`<table><thead><tr><th>Category</th><th class="num">SKUs</th><th class="num">Units</th></tr></thead><tbody>`+S.byCat.map(c=>`<tr><td>${esc(c.k)}</td><td class="num">${fmt(c.n)}</td><td class="num">${fmt(c.units)}</td></tr>`).join('')+`</tbody></table>`;
+      return `<b>${fmt(k.skus)}</b> active SKUs · <b>${fmt(k.unitsOnHand)}</b> units on hand.`;
+    }
+    return `<b>${fmt(rows.length)}</b> SKUs — ${esc(lbl)}.`;
+  }
+  if(filtered) return `<b>${fmt(rows.length)}</b> SKUs — ${esc(lbl)}:`+cbArtTable(rows);
+
+  const kws=(up.match(/[A-Z0-9]{3,}/g)||[]).filter(t=>!CB_STOP.has(t));
+  if(kws.length){ const hits=A.filter(a=>kws.every(kw=>[a.no,a.name,a.cat,a.sup].some(v=>String(v||'').toUpperCase().includes(kw))));
+    if(hits.length) return `Found <b>${fmt(hits.length)}</b> SKUs matching “${esc(kws.join(' '))}”:`+cbArtTable(hits); }
+  return `I couldn't match that. Try <i>help</i> — I can find articles, locations, stock levels, low/out-of-stock, counts by category or ABC class, plus accuracy, POs and dispatch orders.`;
+}
+function cbHelp(){
+  const cat=(S.byCat[0]||{k:'a category'}).k;
+  const sample=(S.articles.find(a=>a.status==='Low')||S.articles[0]||{no:'an article'}).no;
+  return `I answer from this snapshot (units & movement only) — try:`+
+    `<ul style="margin:8px 0 0 18px;padding:0;line-height:1.7">`+
+    `<li><i>where is ${esc(sample)}</i></li>`+
+    `<li><i>how much stock of ${esc(sample)}</i></li>`+
+    `<li><i>how many units on hand</i> · <i>how many SKUs by category</i></li>`+
+    `<li><i>how many units on hand in ${esc(cat)}</i></li>`+
+    `<li><i>what's low on stock</i> · <i>list out of stock</i></li>`+
+    `<li><i>how many class A SKUs</i></li>`+
+    `<li><i>inventory accuracy</i> · <i>how many purchase orders</i></li></ul>`;
+}
+function askPush(who,html){ const log=$('askLog'); if(!log)return; const d=document.createElement('div'); d.className='ask-msg '+who; d.innerHTML='<div class="ask-bubble">'+html+'</div>'; log.appendChild(d); log.scrollTop=log.scrollHeight; }
+function askSubmit(){ const inp=$('askInput'); const q=(inp.value||'').trim(); if(!q)return; askPush('you',esc(q)); let a; try{a=cbAnswer(q);}catch(e){a='Sorry — I couldn\'t work that one out. Try <i>help</i>.';console.error(e);} askPush('bot',a); inp.value=''; inp.focus(); }
+function askAsk(t){ const inp=$('askInput'); if(!inp)return; inp.value=t; askSubmit(); }
+function askInit(){
+  const el=$('askChips'); if(!el)return;
+  const cat=(S.byCat[0]||{k:'a category'}).k;
+  const sample=(S.articles.find(a=>a.status==='Low')||S.articles[0]||{no:''}).no;
+  const ex=[sample?`Where is ${sample}`:'Where is …','How many units on hand',`How many SKUs by category`,`What's low on stock`,'List out of stock','How many class A SKUs','Inventory accuracy'];
+  el.innerHTML=ex.map(e=>`<span class="ask-chip" onclick="askAsk(this.textContent)">${esc(e)}</span>`).join('');
+  const log=$('askLog'); if(log && !log.childNodes.length) askPush('bot',cbHelp());
 }
 
 // ===== boot =====
